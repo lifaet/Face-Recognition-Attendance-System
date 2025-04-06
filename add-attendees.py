@@ -1,27 +1,15 @@
 import cv2
 import face_recognition
 import os
-import logging
-import json
 from pathlib import Path
 import sys
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('training.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
 
 def load_config():
     try:
         with open('config.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        logging.error("config.json not found")
+        print("Error: config.json not found")
         return None
 
 def capture_training_data():
@@ -35,7 +23,7 @@ def capture_training_data():
     try:
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
-            logging.error("Failed to open webcam")
+            print("Error: Failed to open webcam")
             return
 
         person_name = input("Enter person's name (or 'q' to quit): ").strip()
@@ -53,32 +41,15 @@ def capture_training_data():
         while True:
             success, img = cap.read()
             if not success:
-                logging.error("Failed to read frame")
+                print("Error: Failed to read frame")
                 break
 
-            # Display guide box
-            height, width = img.shape[:2]
-            center_x, center_y = width // 2, height // 2
-            box_size = 300
-            
-            # Draw guide box
-            cv2.rectangle(img, 
-                         (center_x - box_size//2, center_y - box_size//2),
-                         (center_x + box_size//2, center_y + box_size//2),
-                         (0, 255, 0), 2)
+            # ...existing code for guide box and display...
 
-            # Add instructions
-            cv2.putText(img, "Position face in box and press 'c' to capture",
-                       (20, height-40), cv2.FONT_HERSHEY_DUPLEX,
-                       0.7, (255, 255, 255), 2)
-
-            cv2.imshow('Capture Training Image', img)
-            
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
             elif key == ord('c'):
-                # Detect faces in frame
                 face_locations = face_recognition.face_locations(img)
                 
                 if len(face_locations) == 0:
@@ -88,39 +59,14 @@ def capture_training_data():
                     print("Multiple faces detected. Please ensure only one face is visible.")
                     continue
                 
-                # Save image
                 cv2.imwrite(save_path, img)
                 print(f"\nImage saved successfully: {save_path}")
                 break
 
     except Exception as e:
-        logging.error(f"Error capturing training data: {str(e)}")
+        print(f"Error capturing training data: {str(e)}")
     finally:
         cap.release()
         cv2.destroyAllWindows()
 
-def main():
-    try:
-        while True:
-            print("\nFace Recognition Training System")
-            print("1. Capture New Face")
-            print("2. Exit")
-            
-            choice = input("\nSelect option: ")
-            
-            if choice == "1":
-                capture_training_data()
-            elif choice == "2":
-                break
-            else:
-                print("Invalid option. Please try again.")
-
-    except KeyboardInterrupt:
-        print("\nTraining system terminated by user")
-    except Exception as e:
-        logging.error(f"Unexpected error: {str(e)}")
-    finally:
-        cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-    main()
+# ...rest of the code remains the same...

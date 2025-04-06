@@ -89,7 +89,6 @@ The system includes a separate training script (`capture_training.py`) for addin
 - Visual guide box for proper positioning
 - Single-face validation
 - Automatic image saving
-- Error handling and logging
 
 ### Usage
 
