@@ -81,7 +81,6 @@ The system can be configured via `config.json`:
 
 ## 📸 Face Training System
 
-### Overview
 The system includes a separate training script (`capture_training.py`) for adding new people to the attendance system.
 
 ### Features
@@ -112,15 +111,6 @@ The system includes a separate training script (`capture_training.py`) for addin
    - Good lighting conditions
    - Clear, front-facing pose
    - Subject centered in guide box
-
-### File Structure
-```
-Face-Recognition-Attendance-System/
-├── fras.py                 # Main attendance system
-├── capture_training.py     # Training interface
-├── attendees/              # Stored face images
-└── training.log           # Training session logs
-```
 
 ### Notes
 - Images are automatically saved in the `attendees` folder
