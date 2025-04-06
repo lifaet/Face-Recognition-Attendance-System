@@ -1,6 +1,7 @@
 import cv2
 import face_recognition
 import os
+import json
 from pathlib import Path
 import sys
 
@@ -9,8 +10,27 @@ def load_config():
         with open('config.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        print("Error: config.json not found")
-        return None
+        print("Config file not found. Creating default configuration...")
+        default_config = {
+            "path": "attendees",
+            "frame_skip": 2,
+            "face_recognition_threshold": 0.50,
+            "attendance_file": "attendance.csv",
+            "ui": {
+                "analyzing_text": "Analyzing...",
+                "welcome_text": "Welcome,",
+                "unknown_text": "Unknown Person",
+                "display_time": 3
+            }
+        }
+        try:
+            with open('config.json', 'w') as f:
+                json.dump(default_config, f, indent=4)
+            print("Default configuration created successfully.")
+            return default_config
+        except Exception as e:
+            print(f"Error creating config file: {str(e)}")
+            return None
 
 def capture_training_data():
     config = load_config()
