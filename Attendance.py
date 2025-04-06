@@ -1,8 +1,8 @@
 import cv2
-import numpy as np
+import numpy
 import face_recognition
 import os
-from datetime import datetime
+import datetime
 
 path = 'attendees'
 images = []
@@ -55,7 +55,7 @@ while True:
         matches = face_recognition.compare_faces(encodeListKnown, encodeFace)
         faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
         # print(faceDis)
-        matchIndex = np.argmin(faceDis)
+        matchIndex = numpy.argmin(faceDis)
 
         if faceDis[matchIndex] < 0.50:
             name = classNames[matchIndex].upper()
