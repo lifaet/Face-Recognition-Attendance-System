@@ -4,7 +4,7 @@ import face_recognition
 import os
 from datetime import datetime
 
-path = 'ImagesAttendance'
+path = 'attendees'
 images = []
 classNames = []
 myList = os.listdir(path)
@@ -26,7 +26,7 @@ def findEncodings(images):
 
 
 def markAttendance(name):
-    with open('Attendance.csv', 'r+') as f:
+    with open('attendance.csv', 'r+') as f:
         myDataList = f.readlines()
         nameList = []
         for line in myDataList:
