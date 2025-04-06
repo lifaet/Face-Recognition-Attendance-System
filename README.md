@@ -154,10 +154,10 @@ The system can be configured via `config.json`:
 ## 📄 License
 MIT License - See [LICENSE](LICENSE) file
 
-## 💡 Support
+<!-- ## 💡 Support
 - Open an issue for bugs
 - Submit feature requests via issues
 - Email: support@example.com
 
 ---
-Made with ❤️ by [Your Name]
+Made with ❤️ by [Your Name] -->
