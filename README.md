@@ -51,7 +51,7 @@ Operating in real-time, it captures video feed, detects faces, matches them agai
 ## 📂 Project Structure
 ```
 Face-Recognition-Attendance-System/
-├── Attendance.py          # Main application
+├── fras.py          # Main application
 ├── attendees/            # Reference face images
 ├── attendance.csv        # Attendance records
 ├── config.json          # System configuration
