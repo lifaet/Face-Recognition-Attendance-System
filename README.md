@@ -52,6 +52,7 @@ Operating in real-time, it captures video feed, detects faces, matches them agai
 ```
 Face-Recognition-Attendance-System/
 ├── fras.py                 # Main application
+├── capture_training.py     # Face Training
 ├── attendees/              # Reference face images
 ├── attendance.csv          # Attendance records
 ├── config.json             # System configuration
@@ -78,13 +79,57 @@ The system can be configured via `config.json`:
 }
 ```
 
+## 📸 Face Training System
+
+### Overview
+The system includes a separate training script (`capture_training.py`) for adding new people to the attendance system.
+
+### Features
+- Interactive face capture interface
+- Real-time face detection validation
+- Visual guide box for proper positioning
+- Single-face validation
+- Automatic image saving
+- Error handling and logging
+
+### Usage
+
+1. **Run Training Script**
+   ```bash
+   python capture_training.py
+   ```
+
+2. **Adding New Person**
+   - Select "Capture New Face"
+   - Enter person's name
+   - Follow on-screen instructions:
+     - Position face within green guide box
+     - Press 'c' to capture
+     - Press 'q' to quit
+
+3. **Image Requirements**
+   - Single face per image
+   - Good lighting conditions
+   - Clear, front-facing pose
+   - Subject centered in guide box
+
+### File Structure
+```
+Face-Recognition-Attendance-System/
+├── fras.py                 # Main attendance system
+├── capture_training.py     # Training interface
+├── attendees/              # Stored face images
+└── training.log           # Training session logs
+```
+
+### Notes
+- Images are automatically saved in the `attendees` folder
+- Naming format: `FIRSTNAME_LASTNAME.jpg`
+- System automatically recognizes new faces on next startup
+- Supports multiple training sessions
+
 
 ## 📱 Usage
-
-### Setting Up Reference Images
-1. Create clear face photos of individuals
-2. Name format: `firstname_lastname.jpg`
-3. Place images in the `attendees/` folder
 
 ### Running the System
 1. Start the application:
