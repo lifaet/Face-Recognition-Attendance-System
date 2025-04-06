@@ -201,33 +201,39 @@ class FaceRecognitionSystem:
                 imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
 
                 facesCurFrame = face_recognition.face_locations(imgS)
+                display_img = img.copy()
+
                 if facesCurFrame:
-                    self.ui_overlay.set_analyzing()
-                    img = self.draw_ui(img)
-                    cv2.imshow('Face Recognition', img)
-                    cv2.waitKey(1)
-
-                    encodesCurFrame = face_recognition.face_encodings(imgS, facesCurFrame)
-
-                    for encodeFace, faceLoc in zip(encodesCurFrame, facesCurFrame):
-                        matches = face_recognition.compare_faces(self.encodeListKnown, encodeFace)
-                        faceDis = face_recognition.face_distance(self.encodeListKnown, encodeFace)
-                        matchIndex = numpy.argmin(faceDis)
-
-                        if faceDis[matchIndex] < self.config['face_recognition_threshold']:
-                            name = self.classNames[matchIndex].upper()
-                            if self.markAttendance(name):
-                                self.ui_overlay.set_welcome(name)
-                        else:
-                            name = 'Unknown'
-                            self.ui_overlay.set_unknown()
-
+                    for faceLoc in facesCurFrame:
                         y1, x2, y2, x1 = faceLoc
                         y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
-                        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        cv2.rectangle(display_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        
+                        # Only show analyzing message for detected faces
+                        self.ui_overlay.set_analyzing()
+                        display_img = self.draw_ui(display_img)
+                        cv2.imshow('Face Recognition', display_img)
+                        cv2.waitKey(1)
 
-                img = self.draw_ui(img)
-                cv2.imshow('Face Recognition', img)
+                        encodesCurFrame = face_recognition.face_encodings(imgS, [faceLoc])
+                        
+                        if encodesCurFrame:
+                            matches = face_recognition.compare_faces(self.encodeListKnown, encodesCurFrame[0])
+                            faceDis = face_recognition.face_distance(self.encodeListKnown, encodesCurFrame[0])
+                            matchIndex = numpy.argmin(faceDis)
+
+                            if faceDis[matchIndex] < self.config['face_recognition_threshold']:
+                                name = self.classNames[matchIndex].upper()
+                                if self.markAttendance(name):
+                                    self.ui_overlay.set_welcome(name)
+                            else:
+                                self.ui_overlay.set_unknown()
+                else:
+                    # No faces detected, clear UI
+                    self.ui_overlay.clear()
+                    display_img = self.draw_ui(display_img)
+
+                cv2.imshow('Face Recognition', display_img)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 

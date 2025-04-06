@@ -58,34 +58,36 @@ def capture_training_data():
         print("3. Press 'q' to quit\n")
 
         while True:
-            success, img = cap.read()
+            success, raw_frame = cap.read()  # Store original frame
             if not success:
                 print("Error: Failed to read frame")
                 break
 
-            # Display guide box
-            height, width = img.shape[:2]
+            display_frame = raw_frame.copy()  # Create copy for display
+            
+            # Display guide box on display frame only
+            height, width = display_frame.shape[:2]
             center_x, center_y = width // 2, height // 2
             box_size = 300
             
             # Draw guide box
-            cv2.rectangle(img, 
+            cv2.rectangle(display_frame, 
                          (center_x - box_size//2, center_y - box_size//2),
                          (center_x + box_size//2, center_y + box_size//2),
                          (0, 255, 0), 2)
 
             # Add instructions
-            cv2.putText(img, "Position face in box and press 'c' to capture",
+            cv2.putText(display_frame, "Position face in box and press 'c' to capture",
                        (20, height-40), cv2.FONT_HERSHEY_DUPLEX,
                        0.7, (255, 255, 255), 2)
 
-            cv2.imshow('Capture Training Image', img)
+            cv2.imshow('Capture Training Image', display_frame)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
             elif key == ord('c'):
-                face_locations = face_recognition.face_locations(img)
+                face_locations = face_recognition.face_locations(raw_frame)
                 
                 if len(face_locations) == 0:
                     print("No face detected. Please try again.")
@@ -94,7 +96,7 @@ def capture_training_data():
                     print("Multiple faces detected. Please ensure only one face is visible.")
                     continue
                 
-                cv2.imwrite(save_path, img)
+                cv2.imwrite(save_path, raw_frame)  # Save original frame without UI
                 print(f"\nImage saved successfully: {save_path}")
                 break
 
