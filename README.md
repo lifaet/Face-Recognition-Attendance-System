@@ -1,5 +1,6 @@
 # Face Recognition Attendance System
 
+
 ## 📋 Overview
 The Face Recognition Attendance System is a cutting-edge solution that automates attendance tracking using advanced facial recognition technology. This intelligent system combines computer vision, machine learning, and automated record-keeping to create a seamless attendance management experience.
 
@@ -26,7 +27,6 @@ Operating in real-time, it captures video feed, detects faces, matches them agai
 - 4GB+ RAM
 
 ### Installation
-
 1. **Install Visual Studio Build Tools**
    - Download Visual Studio Community Edition
    - Select "Desktop Development with C++"
@@ -91,7 +91,6 @@ The system includes a separate training script (`capture_training.py`) for addin
 - Automatic image saving
 
 ### Usage
-
 1. **Run Training Script**
    ```bash
    python capture_training.py
