@@ -1,1 +1,6 @@
-cv2 numpy face_recognition os datetime logging json pathlib sys time
+opencv-python
+numpy
+face_recognition
+datetime
+logging
+pathlib
