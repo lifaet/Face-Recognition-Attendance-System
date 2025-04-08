@@ -63,7 +63,7 @@ def load_config():
                 "analyzing_text": "Analyzing...",
                 "welcome_text": "Welcome,",
                 "unknown_text": "Unknown Person",
-                "display_time": 3
+                "display_time": 2
             }
         }
         with open('config.json', 'w') as f:
@@ -180,65 +180,68 @@ class FaceRecognitionSystem:
                 logging.error("Failed to open webcam")
                 return False
 
+            # Force high performance settings
+            cap.set(cv2.CAP_PROP_FPS, 30)  # Reduced to stable 30FPS
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+            last_recognition_time = time.time()
+            recognition_cooldown = 2  # 2 second cooldown
+
             while True:
                 success, img = cap.read()
                 if not success:
-                    logging.error("Failed to read frame")
                     break
 
-                if self.ui_overlay.should_clear():
-                    self.ui_overlay.clear()
-
-                self.frame_count += 1
-                if self.frame_count % self.config['frame_skip'] != 0:
-                    img = self.draw_ui(img)
-                    cv2.imshow('Face Recognition', img)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
-                    continue
-
-                imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
-                imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
-
-                facesCurFrame = face_recognition.face_locations(imgS)
+                # Simple copy for display
                 display_img = img.copy()
+                
+                # Quick face detection
+                small_frame = cv2.resize(img, (0, 0), None, 0.25, 0.25)
+                rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+                face_locations = face_recognition.face_locations(rgb_small_frame)
 
-                if facesCurFrame:
-                    for faceLoc in facesCurFrame:
-                        y1, x2, y2, x1 = faceLoc
-                        y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
-                        cv2.rectangle(display_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                if face_locations:
+                    # Get first face only
+                    y1, x2, y2, x1 = face_locations[0]
+                    y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
+                    
+                    # Draw green box
+                    cv2.rectangle(display_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+                    # Do recognition every 2 seconds
+                    if time.time() - last_recognition_time > recognition_cooldown:
+                        face_encoding = face_recognition.face_encodings(rgb_small_frame, [face_locations[0]])[0]
+                        matches = face_recognition.compare_faces(self.encodeListKnown, face_encoding, tolerance=0.5)
+
+                        if True in matches:
+                            match_index = matches.index(True)
+                            name = self.classNames[match_index].upper()
+                            
+                            # Draw name and mark attendance
+                            cv2.putText(display_img, name, (x1, y1-10), 
+                                      cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                            
+                            if self.markAttendance(name):
+                                self.ui_overlay.set_welcome(name)
+                                self.ui_overlay.display_until = time.time() + 3  # Show for 3 seconds
+                        else:
+                            cv2.putText(display_img, "UNKNOWN", (x1, y1-10), 
+                                      cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                         
-                        # Only show analyzing message for detected faces
-                        self.ui_overlay.set_analyzing()
-                        display_img = self.draw_ui(display_img)
-                        cv2.imshow('Face Recognition', display_img)
-                        cv2.waitKey(1)
+                        last_recognition_time = time.time()
 
-                        encodesCurFrame = face_recognition.face_encodings(imgS, [faceLoc])
-                        
-                        if encodesCurFrame:
-                            matches = face_recognition.compare_faces(self.encodeListKnown, encodesCurFrame[0])
-                            faceDis = face_recognition.face_distance(self.encodeListKnown, encodesCurFrame[0])
-                            matchIndex = numpy.argmin(faceDis)
-
-                            if faceDis[matchIndex] < self.config['face_recognition_threshold']:
-                                name = self.classNames[matchIndex].upper()
-                                if self.markAttendance(name):
-                                    self.ui_overlay.set_welcome(name)
-                            else:
-                                self.ui_overlay.set_unknown()
-                else:
-                    # No faces detected, clear UI
-                    self.ui_overlay.clear()
+                # Draw UI if needed
+                if not self.ui_overlay.should_clear():
                     display_img = self.draw_ui(display_img)
+                else:
+                    self.ui_overlay.clear()
 
                 cv2.imshow('Face Recognition', display_img)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
-        except Exception as e:
-            logging.error(f"Error in main loop: {str(e)}")
         finally:
             cap.release()
             cv2.destroyAllWindows()
