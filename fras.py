@@ -179,11 +179,12 @@ class FaceRecognitionSystem:
             if not cap.isOpened():
                 return False
 
-            # Set camera properties for best performance
+            # Optimize camera settings
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            cap.set(cv2.CAP_PROP_FPS, 60)
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize latency
+            cap.set(cv2.CAP_PROP_FPS, 30)  # More stable framerate
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # Slightly larger buffer
 
             last_process_time = 0
             process_interval = 0.5  # Recognition every 0.5 seconds
@@ -194,7 +195,8 @@ class FaceRecognitionSystem:
                 if not success:
                     break
 
-                display_frame = frame.copy()
+                # Use original frame
+                display_frame = frame  # Remove copy, work on original frame
                 current_time = time.time()
 
                 # 2. Quick face detection in main thread
