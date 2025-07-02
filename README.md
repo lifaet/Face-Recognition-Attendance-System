@@ -41,7 +41,7 @@ The Face Recognition Attendance System is a real-time, privacy-focused solution 
 
 2. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/Face-Recognition-Attendance-System.git
+   git clone https://github.com/lifaet/Face-Recognition-Attendance-System.git
    cd Face-Recognition-Attendance-System
    ```
 
