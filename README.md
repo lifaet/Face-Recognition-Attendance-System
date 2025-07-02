@@ -1,182 +1,240 @@
-# Face-Recognition-Attendance-System
-The Face Recognition Based Attendance System uses face recognition technology to automate student attendance tracking in educational institutions. It captures live video or images, matches them against a registered database of faces, and marks attendance in real-time. By streamlining attendance processes, it reduces paperwork and improves overall efficiency.
+# Face Recognition Attendance System
 
-# Features
-- Face recognition technology to track student attendance
-- Real-time matching of captured images or video with a database of registered faces
-- Automatic marking of attendance for recognized students
-- Database storage for student information and attendance records
-- Automation of attendance tracking processes
-- Reduction of manual paperwork
+## 📋 Overview
+The Face Recognition Attendance System is a real-time, privacy-focused solution for automated attendance tracking using facial recognition. It leverages computer vision and machine learning to detect and recognize faces from a webcam, logging attendance with timestamps in a secure and efficient manner.
 
-# Installations
+- **No images are stored**—only face encodings are kept for privacy and speed.
+- **Unknown faces** are also logged (once per day) for audit purposes.
+- Robust error handling and logging ensure reliability in real-world use.
+
+---
+
+## ✨ Key Features
+
+- Real-time face detection and recognition
+- Automated attendance logging with timestamps
+- User-friendly interface with visual feedback overlays
+- Multi-face detection capability
+- Privacy-focused: only encodings, not images, are stored
+- Configurable system parameters via `config.json`
+- Comprehensive error logging to `attendance_system.log`
+- Logs both known and unknown faces (once per day)
+
+---
+
+## 🚀 Quick Start
+
 ### Prerequisites
+
 - Python 3.6+
-- Visual Studio Build Tools with C++
+- Visual Studio Build Tools with C++ (for dlib/face_recognition)
 - CMake
 - Webcam (720p minimum)
 - 4GB+ RAM
 
 ### Installation
+
 1. **Install Visual Studio Build Tools**
    - Download Visual Studio Community Edition
    - Select "Desktop Development with C++"
    - Complete installation and restart
 
-The installation process for this project is a bit more than usual. First we have to download a C++ compiler. We can do this by installing Visual Studios. You can download the community version for free from their website. Once the intaller we will run it and select the ‘Desktop development with C++’. The download and installation will take some time as it is a few Gbs.
-
-![visualStudio-950x480](https://github.com/Darkwarrior247/Face-Recognition-Attendance-System/assets/103986226/44181d8e-a88a-4131-87ba-799efd88309a)
-
-After completing and restarting the computer, now we will head on to our Pycharm project. Here we will install the required packages. Below is the list.
-
-**Clone the repository**
-```bash
-   git clone https://github.com/Darkwarrior247/Face-Recognition-Attendance-System.git
+2. **Clone the repository**
+   ```bash
+   git clone https://github.com/lifaet/Face-Recognition-Attendance-System.git
    cd Face-Recognition-Attendance-System
    ```
 
-**Install Python dependencies**
-```bash
-   pip opencv-python numpy face_recognition dlib face_recognition --only-binary :all: cmake cmake
+3. **Install Python dependencies**
+   ```bash
+   pip install cmake
+   pip install dlib
+   pip install face-recognition
+   pip install numpy
+   pip install opencv-python
+   ```
+
+---
+
+## 📂 Project Structure
+
+```
+Face-Recognition-Attendance-System/
+├── fras.py                 # Main application
+├── add_attendees.py        # Register new attendees (encodings only)
+├── encodings.json          # Stores face encodings and names
+├── attendance.csv          # Attendance records
+├── config.json             # System configuration
+├── attendance_system.log   # System logs
+└── README.md               # Documentation
 ```
 
-#Understanding the problem
-Although many face recognition algorithms have been developed over the years, their speed and accuracy balance has not been quiet optimal . But some recent advancements have shown promise. A good example is Facebook, where they are able to tag you and your friends with just a few images of training and with accuracy as high as 98%. So how does this work . Today we will try to replicate similar results using a face recognition library developed by Adam Geitgey. Lets look at the 4 problems he explained in his article.
+---
 
-Face recognition is a series of several problems:
+## ⚙️ Configuration
 
-1. First, look at a picture and find all the faces in it
-2. Second, focus on each face and be able to understand that even if a face is turned in a weird direction or in bad lighting, it is still the same person.
-3. Third, be able to pick out unique features of the face that you can use to tell it apart from other people— like how big the eyes are, how long the face is, etc.
-4. Finally, compare the unique features of that face to all the people you already know to determine the person’s name.
-   
-# Attendance Project
-Now using the methods we have seen above, we will develop an attendance system where the user is automatically logged when they are detected in the camera. We will store the name along with the time when they appeared.
+The system is configured via `config.json`:
 
-# Importing Images
-As we have imported before we can use the same face_recognition.load_image_file() function to import our images. But when we have multiple images, importing them individually can become messy. Therefore we will write a script to import all images in a given folder at once. For this we will need the os library so we will import that first. We will store all the images in one list and their names in another.
+```json
+{
+    "path": "attendees",
+    "frame_skip": 2,
+    "face_recognition_threshold": 0.50,
+    "attendance_file": "attendance.csv",
+    "ui": {
+        "analyzing_text": "Analyzing...",
+        "welcome_text": "Welcome,",
+        "unknown_text": "Unknown Person",
+        "display_time": 3
+    }
+}
+```
 
-import face_recognition
-import cv2
-import numpy as np
-import os
-path = 'ImagesAttendance'
-images = []     # LIST CONTAINING ALL THE IMAGES
-className = []    # LIST CONTAINING ALL THE CORRESPONDING CLASS Names
-myList = os.listdir(path)
-print("Total Classes Detected:",len(myList))
-for x,cl in enumerate(myList):
-        curImg = cv2.imread(f'{path}/{cl}')
-        images.append(curImg)
-        className.append(os.path.splitext(cl)[0])
+- `frame_skip`: Process every Nth frame for speed.
+- `face_recognition_threshold`: Lower is stricter (default 0.50).
+- `display_time`: Seconds to show welcome message.
 
-# Compute Encodings
-Now that we have a list of images we can iterate through those and create a corresponding encoded list for known faces. To do this we will create a function. As earlier we will first convert it into RGB and then find its encoding using the face_encodings() function. Then we will append each encoding to our list.
+---
 
-def findEncodings(images):
-    encodeList = []
-    for img in images:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        encode = face_recognition.face_encodings(img)[0]
-        encodeList.append(encode)
-    return encodeList
-Now we can simply call this function with the images list as the input arguments.
+## 📸 Registering Attendees
 
-encodeListKnown = findEncodings(images)
-print('Encodings Complete')
+Use `add_attendees.py` to add new people to the system. This script captures a face from the webcam, extracts its encoding, and saves it to `encodings.json`.
 
-# The While loop
-The while loop is created to run the webcam. But before the while loop we have to create a video capture object so that we can grab frames from the webcam.
+### Usage
 
-cap = cv2.VideoCapture(0)
+1. Run the script:
+   ```bash
+   python add_attendees.py
+   ```
+2. Enter the attendee's name.
+3. Position their face in the webcam and press `c` to capture.
+4. The encoding is saved to `encodings.json`.
 
-#Webcam Image
-First we will read the image from the webcam and then resize it to quarter the size. This is done to increase the speed of the system. Even though the image being used is 1/4 th of the original, we will still use the original size while displaying. Next we will convert it to RGB.
+**Note:** No images are stored—only the encoding is kept for privacy.
 
-while True:
-    success, img = cap.read()
-    imgS = cv2.resize(img, (0, 0), fx=0.25, fy=0.25)
-    imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
-    
-# Webcam Encodings
-Once we have the webcam frame we will find all the faces in our image. The face_locations function is used for this purpose. Later we will find the face_encodings as well.
+---
 
-facesCurFrame = face_recognition.face_locations(imgS)
-encodesCurFrame = face_recognition.face_encodings(imgS, facesCurFrame)
+## 🖥️ Running the Attendance System
 
-# Find Matches
-Now we can match the current face encodings to our known faces encoding list to find the matches. We will also compute the distance. This is done to find the best match in case more than one face is detected at a time.
+1. Start the application:
+   ```bash
+   python fras.py
+   ```
+2. The webcam opens and waits for a face.
+3. When a face is detected:
+   - Shows "Analyzing..." for 1–2 seconds.
+   - If recognized, shows "Welcome, NAME!" and logs attendance.
+   - If not recognized, shows "Unknown Person" and logs "Unknown" attendance.
+4. Press `q` or `Ctrl+C` to exit.
 
-for encodeFace,faceLoc in zip(encodesCurFrame,facesCurFrame):
-    matches = face_recognition.compare_faces(encodeListKnown, encodeFace)
-    faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
-Once we have the list of face distances we can find the minimum one, as this would be the best match.
+---
 
-matchIndex = np.argmin(faceDis)
-Now based on the index value we can determine the name of the person and display it on the original Image.
+## 🔍 Technical Details
 
-if matches[matchIndex]:
-    name = className[matchIndex].upper()
-    y1,x2,y2,x1=faceLoc
-    y1, x2, y2, x1 = y1*4,x2*4,y2*4,x1*4
-    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-    cv2.rectangle(img, (x1, y2 - 35), (x2, y2), (0, 255, 0), cv2.FILLED)
-    cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 1)
-    
-# Marking Attendance
-Lastly we are going to add the automated attendance code. We will start by writing a function that requires only one input which is the name of the user. First we open our Attendance file which is in csv format. Then we read all the lines and iterate through each line using a for loop. Next we can split using comma ‘,’. This will allow us to get the first element which is the name of the user. If the user in the camera already has an entry in the file then nothing will happen. On the other hand if the user is new then the name of the user along with the current time stamp will be stored. We can use the datetime class in the date time package to get the current time.
+### Face Recognition Process
 
-def markAttendance(name):
-    with open('Attendance.csv','r+') as f:
-        myDataList = f.readlines()
-        nameList =[]
-        for line in myDataList:
-            entry = line.split(',')
-            nameList.append(entry[0])
-        if name not in  line:
-            now = datetime.now()
-            dt_string = now.strftime("%H:%M:%S")
-            f.writelines(f'n{name},{dt_string}')
+1. **Face Detection**
+   - Locates faces in video feed
+   - Processes at 1/4 resolution for performance
 
-# Labeling Unknown faces as well
-To find the unknown faces we will replace
+2. **Face Recognition**
+   - Converts detected faces to encodings
+   - Matches against known face encodings from `encodings.json`
+   - Threshold-based verification
 
-if matches[matchIndex]:
-    name = classNames[matchIndex].upper()
-    #print(name)
-    y1,x2,y2,x1 = faceLoc
-    y1, x2, y2, x1 = y1*4,x2*4,y2*4,x1*4
-    cv2.rectangle(img,(x1,y1),(x2,y2),(0,255,0),2)
-    cv2.rectangle(img,(x1,y2-35),(x2,y2),(0,255,0),cv2.FILLED)
-    cv2.putText(img,name,(x1+6,y2-6),cv2.FONT_HERSHEY_COMPLEX,1,(255,255,255),2)
-    markAttendance(name)
-with this
+3. **Attendance Marking**
+   - Automatic date and time stamping
+   - Duplicate entry prevention (one entry per person per day)
+   - CSV format storage
 
-if faceDis[matchIndex]< 0.50:
-    name = classNames[matchIndex].upper()
-    markAttendance(name)
-else: name = 'Unknown'
-#print(name)
-y1,x2,y2,x1 = faceLoc
-y1, x2, y2, x1 = y1*4,x2*4,y2*4,x1*4
-cv2.rectangle(img,(x1,y1),(x2,y2),(0,255,0),2)
-cv2.rectangle(img,(x1,y2-35),(x2,y2),(0,255,0),cv2.FILLED)
-cv2.putText(img,name,(x1+6,y2-6),cv2.FONT_HERSHEY_COMPLEX,1,(255,255,255),2)
-All this does is to check if the distance to our min face is less than 0.5 or not. If its not then this means the person is unknown so we change the name to unknown and don’t mark the attendance.
+### UI Features
 
-# Troubleshooting
+- Status messages for:
+  - Face analysis in progress
+  - Welcome messages
+  - Unknown person alerts
+- Visual indicators:
+  - Green rectangle around detected faces
+  - Checkmark for successful recognition
+- Semi-transparent overlay
+
+---
+
+## 📊 Performance
+
+- Frame skipping for optimal performance (`frame_skip` in config)
+- Configurable recognition threshold
+- Efficient image processing and memory usage
+
+---
+
+## 🔧 Error Handling & Logging
+
+- All errors and events are logged to `attendance_system.log`.
+- Graceful shutdown on errors or `Ctrl+C`.
+- Frame-level errors are logged and skipped without crashing the system.
+
+---
+
+## 📝 Attendance Logging
+
+- Attendance is logged in `attendance.csv` as:
+  ```
+  Name,Date,Time
+  ```
+- Each person (including "Unknown") is logged only once per day.
+
+---
+
+## 🎯 Applications
+
+### Educational
+- Classroom attendance
+- Event tracking
+- Library access
+
+### Corporate
+- Employee attendance
+- Meeting participation
+- Visitor tracking
+
+### Events
+- Participant check-in
+- Access control
+- Session tracking
+
+---
+
+## 🔧 Troubleshooting
 
 ### Common Issues
+
 1. **Camera not detected**
    - Check camera connections
    - Verify camera permissions
 
 2. **Recognition issues**
    - Ensure good lighting
-   - Update reference photos
+   - Update reference encodings
    - Adjust recognition threshold
 
 3. **Performance issues**
    - Increase frame skip value
    - Check system resources
    - Update hardware drivers
+
+---
+
+## 🔒 Security & Privacy
+
+- Only face encodings (not images) are stored.
+- No images are saved after registration.
+- Attendance logs do not include images or biometric data, only names and timestamps.
+
+---
+
+## 📜 License
+
+This project is for educational and personal use.  
+
+---
