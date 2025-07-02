@@ -1,5 +1,4 @@
 {
-    "path": "attendees",
     "frame_skip": 2,
     "face_recognition_threshold": 0.50,
     "attendance_file": "attendance.csv",
