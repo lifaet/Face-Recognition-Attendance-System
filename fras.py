@@ -1,13 +1,13 @@
-import cv2
-import numpy
-import face_recognition
 import os
+import json
+import numpy as np
+import face_recognition
+import cv2
 import datetime
 import logging
-import json
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -25,24 +25,15 @@ class UIOverlay:
         self.message = ""
         self.show_checkmark = False
         self.display_until = 0
-        
-    def set_analyzing(self):
-        self.message = self.config['ui']['analyzing_text']
-        self.show_checkmark = False
-        
-    def set_welcome(self, name):
-        self.message = f"{self.config['ui']['welcome_text']} {name}!"
-        self.show_checkmark = True
-        self.display_until = time.time() + self.config['ui']['display_time']
-        
-    def set_unknown(self):
-        self.message = self.config['ui']['unknown_text']
-        self.show_checkmark = False
-        self.display_until = time.time() + 2
-        
+
+    def set_message(self, message, show_checkmark=False, duration=2):
+        self.message = message
+        self.show_checkmark = show_checkmark
+        self.display_until = time.time() + duration
+
     def should_clear(self):
         return self.display_until and time.time() > self.display_until
-        
+
     def clear(self):
         self.message = ""
         self.show_checkmark = False
@@ -53,7 +44,6 @@ def load_config():
         with open('config.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        # Default configuration
         config = {
             "path": "attendees",
             "frame_skip": 2,
@@ -73,202 +63,206 @@ def load_config():
 class FaceRecognitionSystem:
     def __init__(self, config):
         self.config = config
-        self.images = []
         self.classNames = []
         self.encodeListKnown = []
-        self.frame_count = 0
         self.ui_overlay = UIOverlay(config)
+        self.state = "idle"  # idle, analyzing, welcome, unknown, cooldown
+        self.state_until = 0
+        self.last_detected_name = None
         self.setup_files()
-        
+        self.load_encodings()
+
     def setup_files(self):
         Path(self.config['path']).mkdir(exist_ok=True)
         if not Path(self.config['attendance_file']).exists():
             with open(self.config['attendance_file'], 'w') as f:
                 f.write("Name,Date,Time\n")
 
-    def load_images(self):
-        try:
-            path = self.config['path']
-            myList = os.listdir(path)
-            logging.info(f"Found {len(myList)} images in {path}")
-            
-            for cl in myList:
-                img_path = os.path.join(path, cl)
-                curImg = cv2.imread(img_path)
-                if curImg is None:
-                    logging.error(f"Failed to load image: {img_path}")
-                    continue
-                self.images.append(curImg)
-                self.classNames.append(os.path.splitext(cl)[0])
-            
-            return True
-        except Exception as e:
-            logging.error(f"Error loading images: {str(e)}")
+    def load_encodings(self):
+        encoding_file = 'encodings.json'
+        if not os.path.exists(encoding_file):
+            logging.error(f"{encoding_file} not found.")
             return False
-
-    def findEncodings(self):
-        try:
-            encodeList = []
-            for img in self.images:
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                encode = face_recognition.face_encodings(img)[0]
-                encodeList.append(encode)
-            self.encodeListKnown = encodeList
-            logging.info("Encoding completed successfully")
-            return True
-        except Exception as e:
-            logging.error(f"Error during encoding: {str(e)}")
-            return False
+        with open(encoding_file, 'r') as f:
+            data = json.load(f)
+        self.classNames = list(data.keys())
+        self.encodeListKnown = [np.array(enc) for enc in data.values()]
+        logging.info(f"Loaded {len(self.classNames)} face encodings.")
+        return True
 
     def markAttendance(self, name):
         try:
             current_date = datetime.datetime.now().strftime('%Y-%m-%d')
             current_time = datetime.datetime.now().strftime('%H:%M:%S')
-            
             with open(self.config['attendance_file'], 'r+') as f:
                 myDataList = f.readlines()
-                nameList = [line.split(',')[0] for line in myDataList]
-                
                 today_attendance = [
                     line for line in myDataList 
                     if name in line and current_date in line
                 ]
-                
                 if not today_attendance:
-                    f.writelines(f'\n{name},{current_date},{current_time}')
-                    logging.info(f"Marked attendance for {name}")
+                    f.write(f"{name},{current_date},{current_time}\n")
+                    logging.info(f"Attendance marked for {name} at {current_date} {current_time}")
                     return True
-                return False
+                else:
+                    logging.info(f"Attendance already marked for {name} today.")
+            return False
         except Exception as e:
-            logging.error(f"Error marking attendance: {str(e)}")
+            logging.error(f"Error marking attendance for {name}: {str(e)}", exc_info=True)
             return False
 
     def draw_ui(self, img):
         if not self.ui_overlay.message:
             return img
-            
         height, width = img.shape[:2]
         overlay = img.copy()
-        
-        # Draw semi-transparent overlay
         cv2.rectangle(overlay, (0, height-100), (width, height), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.5, img, 0.5, 0, img)
-        
-        # Draw message
         cv2.putText(img, self.ui_overlay.message,
                     (20, height-40), cv2.FONT_HERSHEY_DUPLEX,
                     1.0, (255, 255, 255), 2)
-                    
-        # Draw checkmark if needed
         if self.ui_overlay.show_checkmark:
-            check_center = (width-50, height-50)
-            cv2.circle(img, check_center, 25, (0, 255, 0), -1)
-            # Draw checkmark
-            pts = numpy.array([
-                [check_center[0]-15, check_center[1]],
-                [check_center[0]-5, check_center[1]+10],
-                [check_center[0]+15, check_center[1]-10]
-            ], numpy.int32)
-            cv2.polylines(img, [pts], False, (255, 255, 255), 3)
-        
+            cv2.putText(img, "✔", (width-60, height-40), cv2.FONT_HERSHEY_DUPLEX,
+                        2.0, (0, 255, 0), 3)
         return img
 
     def run(self):
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            logging.error("Failed to open webcam.")
+            return
+
+        logging.info("Face Recognition Attendance System started.")
         try:
-            cap = cv2.VideoCapture(0)
-            if not cap.isOpened():
-                return False
-
-            # Optimize camera settings
-            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            cap.set(cv2.CAP_PROP_FPS, 30)  # More stable framerate
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # Slightly larger buffer
-
-            last_process_time = 0
-            process_interval = 0.5  # Recognition every 0.5 seconds
-
             while True:
-                # 1. Keep video always on - read frame immediately
-                success, frame = cap.read()
-                if not success:
-                    break
+                try:
+                    success, img = cap.read()
+                    if not success:
+                        logging.error("Failed to read frame from webcam.")
+                        break
 
-                # Use original frame
-                display_frame = frame  # Remove copy, work on original frame
-                current_time = time.time()
+                    now = time.time()
 
-                # 2. Quick face detection in main thread
-                small_frame = cv2.resize(frame, (0, 0), None, 0.25, 0.25)
-                face_locations = face_recognition.face_locations(small_frame)
+                    # State machine
+                    if self.state == "idle":
+                        # Detect movement/face
+                        small_img = cv2.resize(img, (0, 0), fx=0.25, fy=0.25)
+                        rgb_small_img = cv2.cvtColor(small_img, cv2.COLOR_BGR2RGB)
+                        face_locations = face_recognition.face_locations(rgb_small_img)
+                        if face_locations:
+                            self.state = "analyzing"
+                            self.state_until = now + 1.0  # 1 second analyzing
+                            self.ui_overlay.set_message(self.config['ui']['analyzing_text'], False, 1.0)
+                            self._pending_face_locations = face_locations
+                            self._pending_rgb_img = rgb_small_img
+                        # else: remain idle, no overlay
 
-                if face_locations:
-                    # 3. Draw box immediately for smooth tracking
-                    y1, x2, y2, x1 = [coord * 4 for coord in face_locations[0]]
-                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    elif self.state == "analyzing":
+                        if now >= self.state_until:
+                            # Do recognition
+                            face_locations = getattr(self, "_pending_face_locations", [])
+                            rgb_small_img = getattr(self, "_pending_rgb_img", None)
+                            name = "Unknown"
+                            if face_locations and rgb_small_img is not None:
+                                face_encodings = face_recognition.face_encodings(rgb_small_img, face_locations)
+                                if face_encodings:
+                                    matches = face_recognition.compare_faces(
+                                        self.encodeListKnown, face_encodings[0], tolerance=self.config['face_recognition_threshold']
+                                    )
+                                    face_distances = face_recognition.face_distance(self.encodeListKnown, face_encodings[0])
+                                    best_match_index = np.argmin(face_distances) if len(face_distances) > 0 else None
 
-                    # Process recognition in background interval
-                    if current_time - last_process_time >= process_interval:
-                        small_frame_rgb = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
-                        face_encoding = face_recognition.face_encodings(
-                            small_frame_rgb, [face_locations[0]]
-                        )[0]
+                                    if best_match_index is not None and matches[best_match_index]:
+                                        name = self.classNames[best_match_index]
+                                        self.markAttendance(name)
+                                        self.ui_overlay.set_message(
+                                            f"{self.config['ui']['welcome_text']} {name}!",
+                                            True,
+                                            self.config['ui']['display_time']
+                                        )
+                                        self.state = "welcome"
+                                        self.state_until = now + self.config['ui']['display_time']
+                                        self.last_detected_name = name
+                                    else:
+                                        self.markAttendance("Unknown")  # <--- Add this line
+                                        self.ui_overlay.set_message(
+                                            self.config['ui']['unknown_text'],
+                                            False,
+                                            2
+                                        )
+                                        self.state = "unknown"
+                                        self.state_until = now + 2
+                                else:
+                                    # No encoding found, treat as unknown
+                                    self.ui_overlay.set_message(
+                                        self.config['ui']['unknown_text'],
+                                        False,
+                                        2
+                                    )
+                                    self.state = "unknown"
+                                    self.state_until = now + 2
+                            else:
+                                self.state = "idle"
+                                self.ui_overlay.clear()
+                    # else: still analyzing, show overlay
 
-                        # Match against known faces
-                        matches = face_recognition.compare_faces(
-                            self.encodeListKnown, 
-                            face_encoding,
-                            tolerance=0.5
-                        )
+                    elif self.state == "welcome":
+                        if now >= self.state_until:
+                            self.state = "cooldown"
+                            self.state_until = now + 2  # Wait 2 seconds before scanning again
+                            self.ui_overlay.clear()
+                    # else: show welcome overlay
 
-                        if True in matches:
-                            match_idx = matches.index(True)
-                            name = self.classNames[match_idx].upper()
-                            # Add name above face box
-                            cv2.putText(display_frame, name, 
-                                      (x1, y1-10),
-                                      cv2.FONT_HERSHEY_DUPLEX,
-                                      0.6, (0, 255, 0), 1)
-                            
-                            if self.markAttendance(name):
-                                self.ui_overlay.set_welcome(name)
-                        
-                        last_process_time = current_time
+                    elif self.state == "unknown":
+                        if now >= self.state_until:
+                            self.state = "idle"
+                            self.ui_overlay.clear()
+                    # else: show unknown overlay
 
-                # Always show current frame at full FPS
-                if self.ui_overlay.message and not self.ui_overlay.should_clear():
-                    display_frame = self.draw_ui(display_frame)
-                
-                cv2.imshow('Face Recognition', display_frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                    elif self.state == "cooldown":
+                        if now >= self.state_until:
+                            self.state = "idle"
+                        # No overlay
 
+                    # Draw rectangles if face detected
+                    if hasattr(self, "_pending_face_locations") and self.state in ("analyzing", "welcome", "unknown"):
+                        for (top, right, bottom, left) in self._pending_face_locations:
+                            top, right, bottom, left = top*4, right*4, bottom*4, left*4
+                            cv2.rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
+                            if self.state == "welcome" and self.last_detected_name:
+                                cv2.putText(img, self.last_detected_name, (left, top-10), cv2.FONT_HERSHEY_DUPLEX, 1, (255, 255, 255), 2)
+                            elif self.state == "unknown":
+                                cv2.putText(img, "Unknown", (left, top-10), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 255), 2)
+
+                    # UI overlay
+                    if self.ui_overlay.should_clear():
+                        self.ui_overlay.clear()
+                    img = self.draw_ui(img)
+
+                    cv2.imshow('Face Recognition Attendance', img)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        logging.info("User requested exit with 'q'.")
+                        break
+
+                except Exception as frame_err:
+                    logging.error(f"Error during frame processing: {frame_err}", exc_info=True)
+                    continue  # Optionally skip to next frame
+
+        except KeyboardInterrupt:
+            logging.info("Application terminated by user (Ctrl+C).")
+        except Exception as e:
+            logging.error(f"Unexpected error in main loop: {e}", exc_info=True)
         finally:
             cap.release()
             cv2.destroyAllWindows()
-
-def main():
-    try:
-        config = load_config()
-        face_system = FaceRecognitionSystem(config)
-        
-        if not face_system.load_images():
-            logging.error("Failed to load images. Exiting...")
-            return
-            
-        if not face_system.findEncodings():
-            logging.error("Failed to encode faces. Exiting...")
-            return
-            
-        face_system.run()
-        
-    except KeyboardInterrupt:
-        logging.info("Application terminated by user")
-    except Exception as e:
-        logging.error(f"Unexpected error: {str(e)}")
-    finally:
-        cv2.destroyAllWindows()
+            logging.info("Camera released and all windows closed.")
 
 if __name__ == "__main__":
-    main()
+    try:
+        logging.info("Application starting.")
+        config = load_config()
+        frs = FaceRecognitionSystem(config)
+        frs.run()
+        logging.info("Application exited normally.")
+    except Exception as e:
+        logging.error(f"Fatal error on startup: {e}", exc_info=True)

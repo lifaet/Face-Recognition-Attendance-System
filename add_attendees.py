@@ -3,6 +3,7 @@ import face_recognition
 import os
 import json
 from pathlib import Path
+import numpy as np
 
 def load_config():
     try:
@@ -36,7 +37,7 @@ def capture_training_data():
     if not config:
         return
 
-    # Ensure attendees directory exists
+    # Ensure attendees directory exists (optional, can remove if not storing images)
     Path(config['path']).mkdir(exist_ok=True)
 
     try:
@@ -50,7 +51,6 @@ def capture_training_data():
             return
 
         person_name = person_name.replace(" ", "_").upper()
-        save_path = os.path.join(config['path'], f"{person_name}.jpg")
 
         print("\nInstructions:")
         print("1. Position face in the green box")
@@ -58,25 +58,21 @@ def capture_training_data():
         print("3. Press 'q' to quit\n")
 
         while True:
-            success, raw_frame = cap.read()  # Store original frame
+            success, raw_frame = cap.read()
             if not success:
                 print("Error: Failed to read frame")
                 break
 
-            display_frame = raw_frame.copy()  # Create copy for display
-            
-            # Display guide box on display frame only
+            display_frame = raw_frame.copy()
             height, width = display_frame.shape[:2]
             center_x, center_y = width // 2, height // 2
             box_size = 300
-            
-            # Draw guide box
+
             cv2.rectangle(display_frame, 
                          (center_x - box_size//2, center_y - box_size//2),
                          (center_x + box_size//2, center_y + box_size//2),
                          (0, 255, 0), 2)
 
-            # Add instructions
             cv2.putText(display_frame, "Position face in box and press 'c' to capture",
                        (20, height-40), cv2.FONT_HERSHEY_DUPLEX,
                        0.7, (255, 255, 255), 2)
@@ -88,16 +84,34 @@ def capture_training_data():
                 break
             elif key == ord('c'):
                 face_locations = face_recognition.face_locations(raw_frame)
-                
                 if len(face_locations) == 0:
                     print("No face detected. Please try again.")
                     continue
                 elif len(face_locations) > 1:
                     print("Multiple faces detected. Please ensure only one face is visible.")
                     continue
-                
-                cv2.imwrite(save_path, raw_frame)  # Save original frame without UI
-                print(f"\nImage saved successfully: {save_path}")
+
+                # Extract encoding and save to encodings.json
+                rgb_img = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2RGB)
+                encodings = face_recognition.face_encodings(rgb_img, face_locations)
+                if not encodings:
+                    print("No face encoding found. Please try again.")
+                    continue
+                encoding = encodings[0].tolist()
+
+                encoding_file = 'encodings.json'
+                if os.path.exists(encoding_file):
+                    with open(encoding_file, 'r') as f:
+                        data = json.load(f)
+                else:
+                    data = {}
+
+                data[person_name] = encoding
+
+                with open(encoding_file, 'w') as f:
+                    json.dump(data, f)
+
+                print(f"\nEncoding for {person_name} saved successfully.")
                 break
 
     except Exception as e:
@@ -147,6 +161,32 @@ def delete_attendee():
             print("\nInvalid selection.")
     except ValueError:
         print("\nInvalid input. Please enter a number.")
+
+def add_attendee(name, image_path, encoding_file='encodings.json'):
+    # Load image and get encoding
+    img = cv2.imread(image_path)
+    rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    encodings = face_recognition.face_encodings(rgb_img)
+    if not encodings:
+        print("No face found in the image.")
+        return
+    encoding = encodings[0].tolist()  # Convert numpy array to list for JSON
+
+    # Load existing encodings
+    if os.path.exists(encoding_file):
+        with open(encoding_file, 'r') as f:
+            data = json.load(f)
+    else:
+        data = {}
+
+    # Add/update encoding
+    data[name] = encoding
+
+    # Save back to file
+    with open(encoding_file, 'w') as f:
+        json.dump(data, f)
+
+    print(f"Encoding for {name} saved.")
 
 def main():
     try:
