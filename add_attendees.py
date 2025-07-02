@@ -37,9 +37,6 @@ def capture_training_data():
     if not config:
         return
 
-    # Ensure attendees directory exists (optional, can remove if not storing images)
-    Path(config['path']).mkdir(exist_ok=True)
-
     try:
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
@@ -121,10 +118,11 @@ def capture_training_data():
         cv2.destroyAllWindows()
 
 def list_attendees():
-    config = load_config()
-    if config and os.path.exists(config['path']):
-        attendees = [f.replace('.jpg', '') for f in os.listdir(config['path']) 
-                    if f.endswith('.jpg')]
+    encoding_file = 'encodings.json'
+    if os.path.exists(encoding_file):
+        with open(encoding_file, 'r') as f:
+            data = json.load(f)
+        attendees = list(data.keys())
         if attendees:
             print("\nRegistered Attendees:")
             for i, name in enumerate(attendees, 1):
@@ -132,31 +130,35 @@ def list_attendees():
         else:
             print("\nNo attendees registered yet.")
     else:
-        print("\nAttendees directory not found.")
+        print("\nNo encodings file found.")
 
 def delete_attendee():
-    config = load_config()
-    if not config or not os.path.exists(config['path']):
-        print("\nNo attendees directory found.")
+    encoding_file = 'encodings.json'
+    if not os.path.exists(encoding_file):
+        print("\nNo encodings file found.")
         return
 
-    attendees = [f for f in os.listdir(config['path']) if f.endswith('.jpg')]
+    with open(encoding_file, 'r') as f:
+        data = json.load(f)
+    attendees = list(data.keys())
     if not attendees:
         print("\nNo attendees to delete.")
         return
 
     print("\nSelect attendee to delete:")
     for i, name in enumerate(attendees, 1):
-        print(f"{i}. {name.replace('.jpg', '')}")
+        print(f"{i}. {name}")
 
     try:
         choice = int(input("\nEnter number (or 0 to cancel): "))
         if choice == 0:
             return
         if 1 <= choice <= len(attendees):
-            file_to_delete = os.path.join(config['path'], attendees[choice-1])
-            os.remove(file_to_delete)
-            print(f"\nDeleted: {attendees[choice-1].replace('.jpg', '')}")
+            name_to_delete = attendees[choice-1]
+            del data[name_to_delete]
+            with open(encoding_file, 'w') as f:
+                json.dump(data, f)
+            print(f"\nDeleted: {name_to_delete}")
         else:
             print("\nInvalid selection.")
     except ValueError:
