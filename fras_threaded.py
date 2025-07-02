@@ -7,7 +7,6 @@ import datetime
 import logging
 import sys
 import time
-from pathlib import Path
 import threading
 
 # Configure logging
@@ -46,7 +45,6 @@ def load_config():
             return json.load(f)
     except FileNotFoundError:
         config = {
-            "path": "attendees",
             "frame_skip": 2,
             "face_recognition_threshold": 0.50,
             "attendance_file": "attendance.csv",
@@ -70,19 +68,12 @@ class FaceRecognitionSystem:
         self.state = "idle"  # idle, analyzing, welcome, unknown, cooldown
         self.state_until = 0
         self.last_detected_name = None
-        self.setup_files()
         self.load_encodings()
         # Threading additions
         self.recognition_thread = None
         self.recognition_result = None
         self._pending_face_locations = None
         self._pending_rgb_img = None
-
-    def setup_files(self):
-        Path(self.config['path']).mkdir(exist_ok=True)
-        if not Path(self.config['attendance_file']).exists():
-            with open(self.config['attendance_file'], 'w') as f:
-                f.write("Name,Date,Time\n")
 
     def load_encodings(self):
         encoding_file = 'encodings.json'
@@ -100,6 +91,9 @@ class FaceRecognitionSystem:
         try:
             current_date = datetime.datetime.now().strftime('%Y-%m-%d')
             current_time = datetime.datetime.now().strftime('%H:%M:%S')
+            if not os.path.exists(self.config['attendance_file']):
+                with open(self.config['attendance_file'], 'w') as f:
+                    f.write("Name,Date,Time\n")
             with open(self.config['attendance_file'], 'r+') as f:
                 myDataList = f.readlines()
                 today_attendance = [
@@ -192,7 +186,7 @@ class FaceRecognitionSystem:
                                     if name != "Unknown":
                                         self.markAttendance(name)
                                         self.ui_overlay.set_message(
-                                            f"{self.config['ui']['welcome_text']} {name}!",
+                                            f"{self.config['ui']['welcome_text']} {name}",
                                             True,
                                             self.config['ui']['display_time']
                                         )

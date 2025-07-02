@@ -7,7 +7,6 @@ import datetime
 import logging
 import sys
 import time
-from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -45,7 +44,6 @@ def load_config():
             return json.load(f)
     except FileNotFoundError:
         config = {
-            "path": "attendees",
             "frame_skip": 2,
             "face_recognition_threshold": 0.50,
             "attendance_file": "attendance.csv",
@@ -69,14 +67,7 @@ class FaceRecognitionSystem:
         self.state = "idle"  # idle, analyzing, welcome, unknown, cooldown
         self.state_until = 0
         self.last_detected_name = None
-        self.setup_files()
         self.load_encodings()
-
-    def setup_files(self):
-        Path(self.config['path']).mkdir(exist_ok=True)
-        if not Path(self.config['attendance_file']).exists():
-            with open(self.config['attendance_file'], 'w') as f:
-                f.write("Name,Date,Time\n")
 
     def load_encodings(self):
         encoding_file = 'encodings.json'
@@ -94,6 +85,9 @@ class FaceRecognitionSystem:
         try:
             current_date = datetime.datetime.now().strftime('%Y-%m-%d')
             current_time = datetime.datetime.now().strftime('%H:%M:%S')
+            if not os.path.exists(self.config['attendance_file']):
+                with open(self.config['attendance_file'], 'w') as f:
+                    f.write("Name,Date,Time\n")
             with open(self.config['attendance_file'], 'r+') as f:
                 myDataList = f.readlines()
                 today_attendance = [
@@ -176,7 +170,7 @@ class FaceRecognitionSystem:
                                         name = self.classNames[best_match_index]
                                         self.markAttendance(name)
                                         self.ui_overlay.set_message(
-                                            f"{self.config['ui']['welcome_text']} {name}!",
+                                            f"{self.config['ui']['welcome_text']} {name}",
                                             True,
                                             self.config['ui']['display_time']
                                         )
@@ -184,7 +178,7 @@ class FaceRecognitionSystem:
                                         self.state_until = now + self.config['ui']['display_time']
                                         self.last_detected_name = name
                                     else:
-                                        self.markAttendance("Unknown")  # <--- Add this line
+                                        self.markAttendance("Unknown")
                                         self.ui_overlay.set_message(
                                             self.config['ui']['unknown_text'],
                                             False,
@@ -206,18 +200,11 @@ class FaceRecognitionSystem:
                                 self.ui_overlay.clear()
                     # else: still analyzing, show overlay
 
-                    elif self.state == "welcome":
+                    elif self.state in ("welcome", "unknown"):
                         if now >= self.state_until:
                             self.state = "cooldown"
-                            self.state_until = now + 2  # Wait 2 seconds before scanning again
+                            self.state_until = now + 2  # 2 seconds cooldown after any detection
                             self.ui_overlay.clear()
-                    # else: show welcome overlay
-
-                    elif self.state == "unknown":
-                        if now >= self.state_until:
-                            self.state = "idle"
-                            self.ui_overlay.clear()
-                    # else: show unknown overlay
 
                     elif self.state == "cooldown":
                         if now >= self.state_until:
